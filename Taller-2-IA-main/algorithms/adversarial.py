@@ -118,6 +118,47 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
     MAX node: prune when value > beta (strict).
     MIN node: prune when value < alpha (strict).
     """
+    def alpha_beta(self, state: GameState, agent_index, depth, alpha, beta):
+        if state.is_win() or state.is_lose() or depth == self.depth:
+            return self.evaluation_function(state)
+        num_agents = state.get_num_agents()
+        next_agent = (agent_index + 1) % num_agents
+
+        if next_agent == 0:
+            next_depth = depth + 1
+        else:
+            next_depth = depth
+        
+        actions = state.get_legal_actions(agent_index)
+
+        # MAX node (drone)
+        if agent_index == 0:
+            value = float("-inf")
+            for action in actions:
+                successor = state.generate_successor(agent_index, action)
+                value = max(value, self.alpha_beta(successor, next_agent, next_depth, alpha, beta))
+
+                #poda
+                if value > beta:  # prune
+                    return value
+                alpha = max(alpha, value)  # update alpha
+
+            return value
+        
+        # MIN node (cazadores)
+        else:
+            value = float("inf")
+
+            for action in actions:
+                successor = state.generate_successor(agent_index, action)
+                value = min(value, self.alpha_beta(successor, next_agent, next_depth, alpha, beta))
+
+                #poda
+                if value < alpha:  # prune
+                    return value
+                beta = min(beta, value)  # update beta
+
+            return value
 
     def get_action(self, state: GameState) -> Directions | None:
         """
@@ -133,8 +174,25 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         - Update beta at MIN nodes: beta = min(beta, value).
         - Pass alpha and beta through the recursive calls.
         """
-        # TODO: Implement your code here (BONUS)
-        return None
+        aplpha = float("-inf")
+        beta = float("inf")
+
+        best_action = None
+        best_value = float("-inf")
+
+        actions = state.get_legal_actions(0)
+
+        for action in actions:
+            successor = state.generate_successor(0, action)
+            value = self.alpha_beta(successor, 1, 0, aplpha, beta)
+
+            if value > best_value:
+                best_value = value
+                best_action = action
+
+            aplpha = max(aplpha, best_value)
+            
+        return best_action
 
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
