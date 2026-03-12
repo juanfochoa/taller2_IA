@@ -213,5 +213,49 @@ def backtracking_mrv_lcv(csp: DroneAssignmentCSP) -> dict[str, str] | None:
       values that rule out the fewest choices for neighboring variables.
     - Use csp.get_num_conflicts(var, value, assignment) to count how many values would be ruled out for neighbors if var=value is assigned.
     """
-    # TODO: Implement your code here (BONUS)
-    return None
+    #(BONUS)
+    def backtrack(assigment):
+      if csp.is_complete(assigment):
+        return assigment
+      
+      #MRV: se escoge la variable con menos valores legales
+      unassigned_vars = csp.get_unassigned_variables(assigment)
+
+      var = min(unassigned_vars, key=lambda v: len(csp.domains[v]))
+
+      #LCV: se ordenan los valores por el que menos restricciones impone a los vecinos
+      values = sorted(
+        csp.domains[var], 
+        key=lambda val: csp.get_num_conflicts(var, val, assigment)
+      )
+
+      for value in values:
+        if csp.is_consistent(var,value, assigment):
+          csp.assign(var, value, assigment)
+          
+          # guardar dominios para restaurar en caso de backtracking
+          saved_domains = {v: list(csp.domains[v]) for v in csp.domains}
+
+          #forward checking
+          fail = False
+          for neighbor in csp.get_neighbors(var):
+            if neighbor not in assigment:
+              new_domain = []
+              for val in csp.domains[neighbor]:
+                if csp.is_consistent(neighbor, val, assigment):
+                  new_domain.append(val)
+              csp.domains[neighbor] = new_domain
+              if len(new_domain) == 0:
+                fail = True
+                break
+          
+          if not fail:
+            result = backtrack(assigment)
+            if result is not None:
+              return result
+          
+          #restaurar dominios
+          csp.domains = saved_domains
+          csp.unassign(var, assigment)
+      return None
+    return backtrack({})
