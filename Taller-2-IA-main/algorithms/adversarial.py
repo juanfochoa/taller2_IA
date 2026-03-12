@@ -132,6 +132,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         
         actions = state.get_legal_actions(agent_index)
 
+        if not actions:
+            return self.evaluation_function(state)
+
         # MAX node (drone)
         if agent_index == 0:
             value = float("-inf")
@@ -175,7 +178,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         - Update beta at MIN nodes: beta = min(beta, value).
         - Pass alpha and beta through the recursive calls.
         """
-        aplpha = float("-inf")
+        alpha = float("-inf")
         beta = float("inf")
 
         best_action = None
@@ -185,13 +188,13 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
         for action in actions:
             successor = state.generate_successor(0, action)
-            value = self.alpha_beta(successor, 1, 0, aplpha, beta)
+            value = self.alpha_beta(successor, 1, 0, alpha, beta)
 
             if value > best_value:
                 best_value = value
                 best_action = action
 
-            aplpha = max(aplpha, best_value)
+            alpha = max(alpha, best_value)
             
         return best_action
 
