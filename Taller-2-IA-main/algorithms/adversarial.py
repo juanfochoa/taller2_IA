@@ -99,9 +99,9 @@ class MinimaxAgent(MultiAgentSearchAgent):
         - Return the ACTION (not the value) that maximizes the minimax value for the drone.
         """
         best_action = None
-        best_value = float("inf")
+        best_value = float("-inf")
         
-        for action in state.generate_successor(0):
+        for action in state.get_legal_actions(0):
             sucessor = state.generate_successor(0, action)
             value = self.minimax(sucessor, 1, 0)
 
@@ -118,6 +118,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
     MAX node: prune when value > beta (strict).
     MIN node: prune when value < alpha (strict).
     """
+
     def alpha_beta(self, state: GameState, agent_index, depth, alpha, beta):
         if state.is_win() or state.is_lose() or depth == self.depth:
             return self.evaluation_function(state)
