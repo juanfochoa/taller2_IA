@@ -214,6 +214,8 @@ def backtracking_mrv_lcv(csp: DroneAssignmentCSP) -> dict[str, str] | None:
     - Use csp.get_num_conflicts(var, value, assignment) to count how many values would be ruled out for neighbors if var=value is assigned.
     """
     #(BONUS)
+    """
+    #Implentación sin IA 
     def backtrack(assigment):
       if csp.is_complete(assigment):
         return assigment
@@ -258,4 +260,115 @@ def backtracking_mrv_lcv(csp: DroneAssignmentCSP) -> dict[str, str] | None:
           csp.domains = saved_domains
           csp.unassign(var, assigment)
       return None
+    return backtrack({})
+    """
+    #Implementación con IA
+    """
+    PROMT: Optimiza la implementación de backtracking con Forward Checking, MRV y LCV para el problema de asignación de drones.
+
+    PUNTOS CLAVE DE RESPUESTA:
+    - Para MRV, implementa un tie-break por grado (degree heuristic) para elegir la variable que tiene más vecinos sin asignar en caso de empate en el número de valores restantes.
+    - Para LCV, utiliza la función csp.get_num_conflicts(var, value, assignment) para ordenar los valores de manera que se prueben primero los que menos restricciones imponen a los vecinos.
+    - Para Forward Checking, en lugar de guardar una copia completa de los dominios antes de cada asignación, guarda solo los valores eliminados por variable para restaurarlos eficientemente en caso de backtracking. 
+    - Implementa un retorno temprano (fail-fast) en Forward Checking: si al eliminar valores de los vecinos detectas que algún dominio queda vacío, retorna inmediatamente sin seguir revisando 
+    otros vecinos. Esto reduce el tiempo de búsqueda al detectar fallos lo antes posible.
+    """
+
+    def select_var_mrv(assignment):
+      """
+      CAMBIO 1: Se extrajo la selección de variable a su propia función para mayor claridad.
+      CAMBIO 2: Se agregó tie-break por grado (degree heuristic): si dos variables tienen
+      el mismo número de valores restantes, se prefiere la que tiene MÁS vecinos sin asignar,
+      ya que esa variable está más "conectada" y restringirá más el espacio de búsqueda.
+      Antes solo se usaba min por tamaño de dominio sin ningún tie-break.
+      """
+      unassigned_vars = csp.get_unassigned_variables(assignment)
+      return min(
+            unassigned_vars,
+            key=lambda v: (
+                len(csp.domains[v]),  # primero: menos valores restantes (MRV)
+                -sum(1 for n in csp.get_neighbors(v) if n not in assignment)  # tie-break: más vecinos sin asignar
+            )
+        )
+
+    def order_values_lcv(var, assignment):
+      """
+      CAMBIO 3: Se extrajo el ordenamiento de valores a su propia función.
+      CAMBIO 4: Se usa get_num_conflicts directamente del CSP (ya implementado),
+      que cuenta cuántos valores se eliminarían de los vecinos. Antes ya se hacía esto,
+      pero ahora está encapsulado y es más legible. El valor que menos conflictos genera
+      se prueba primero (LCV = Least Constraining Value).
+      """
+      return sorted(
+        csp.domains[var],
+        key=lambda val: csp.get_num_conflicts(var, val, assignment)
+      )
+    
+    def forward_check(var, assigment):
+      """
+      CAMBIO 5: Se extrajo el forward checking a su propia función que retorna
+      (éxito, dominios_eliminados). Antes se guardaba todo el diccionario de dominios
+      completo (costoso en memoria). Ahora solo se guardan los valores eliminados
+      por variable, lo que reduce el uso de memoria significativamente.
+      CAMBIO 6: Si se detecta un dominio vacío, se retorna inmediatamente (fail-fast)
+      sin seguir revisando vecinos — antes el break ya hacía esto, pero ahora queda
+      más explícito con el retorno temprano.
+      """
+      pruned = {} # para guardar los valores eliminados por variable, para restaurar luego
+
+      for neighbor in csp.get_neighbors(var):
+        if neighbor not in assigment:
+          continue
+
+        removed = []
+        for val in csp.domains[neighbor][:]: # copia de la lista para iterar mientras se modifican los dominios
+          if not csp.is_consistent(neighbor, val, assigment):
+            csp.domains[neighbor].remove(val)
+            removed.append(val)
+        
+        if removed:
+          pruned[neighbor] = removed
+
+        #CAMBIO 7: Retorno temprano si dominio queda vacío (fail-fast)
+        if len(csp.domains[neighbor]) == 0:
+          return False, pruned
+      
+      return True, pruned
+    
+    def restore_domains(pruned):
+      """
+      CAMBIO 8: Función para restaurar dominios usando solo los valores eliminados.
+      Esto es más eficiente que guardar todo el diccionario de dominios.
+      """
+      for neighbor, removed_vals in pruned.items():
+        csp.domains[neighbor].extend(removed_vals)
+
+    def backtrack(assignment):
+      if csp.is_complete(assignment):
+        return assignment
+      
+      #CAMBIO 9: Usa la función MRV con tie-break por grado
+      var = select_var_mrv(assignment)
+
+      #CAMBIO 10: Usa la función LCV para ordenar los valores
+      for value in order_values_lcv(var, assignment):
+            if not csp.is_consistent(var, value, assignment):
+                continue
+
+            csp.assign(var, value, assignment)
+
+            # CAMBIO 11: Forward checking retorna solo lo que podó, no copia dominios completos
+            success, pruned = forward_check(var, assignment)
+
+            if success:
+                result = backtrack(assignment)
+                if result is not None:
+                    return result
+
+            # CAMBIO 12: Restauración eficiente: solo devuelve los valores podados,
+            # no reemplaza el diccionario entero de dominios
+            restore_domains(pruned)
+            csp.unassign(var, assignment)
+      return None
+
     return backtrack({})
